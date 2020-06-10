@@ -53,7 +53,7 @@ function buildWorkletString(t, fun, closureVariables) {
         t.variableDeclaration('const', [
           t.variableDeclarator(
             t.objectPattern(
-              closureVariables.map(variable =>
+              closureVariables.map((variable) =>
                 t.objectProperty(
                   t.identifier(variable.name),
                   t.identifier(variable.name),
@@ -172,7 +172,7 @@ function processWorkletFunction(t, fun) {
             false
           ),
           t.objectExpression(
-            variables.map(variable =>
+            variables.map((variable) =>
               t.objectProperty(
                 t.identifier(variable.name),
                 variable,
@@ -251,12 +251,12 @@ function processIfWorkletNode(t, path) {
           directives &&
           directives.length > 0 &&
           directives.some(
-            directive =>
+            (directive) =>
               t.isDirectiveLiteral(directive.value) &&
               directive.value.value === 'worklet'
           )
         ) {
-          processWorkletFunction(t, fun)
+          processWorkletFunction(t, fun);
         }
       }
     },
@@ -271,45 +271,47 @@ function processWorklets(t, path, processor) {
   ) {
     const objectPath = path.get('arguments.0.properties.0');
     for (let i = 0; i < objectPath.container.length; i++) {
-      processor(t, objectPath.getSibling(i).get('value'))
+      processor(t, objectPath.getSibling(i).get('value'));
     }
   } else if (functionHooks.has(name)) {
-    processor(t, path.get('arguments.0'))
+    processor(t, path.get('arguments.0'));
   }
 }
 
-module.exports = function({ types: t }) {
+module.exports = function ({ types: t }) {
   return {
     visitor: {
       CallExpression: {
         enter(path) {
-          if (path.get("callee").matchesPattern("Object.assign")) { // @babel/plugin-transform-object-assign
+          if (path.get('callee').matchesPattern('Object.assign')) {
+            // @babel/plugin-transform-object-assign
             path.node.callee.object.name = 'random_temp_name';
           }
         },
         exit(path) {
-          if (path.get("callee").matchesPattern("random_temp_name.assign")) { // @babel/plugin-transform-object-assign
+          if (path.get('callee').matchesPattern('random_temp_name.assign')) {
+            // @babel/plugin-transform-object-assign
             path.node.callee.object.name = 'Object';
           }
 
           processWorklets(t, path, processWorkletFunction);
-        }
+        },
       },
       FunctionDeclaration: {
         exit(path) {
           processIfWorkletNode(t, path);
-        }
+        },
       },
       FunctionExpression: {
         exit(path) {
           processIfWorkletNode(t, path);
-        }
+        },
       },
       ArrowFunctionExpression: {
         exit(path) {
-          processIfWorkletNode(t,path);
-        }
-      }
+          processIfWorkletNode(t, path);
+        },
+      },
     },
   };
 };
