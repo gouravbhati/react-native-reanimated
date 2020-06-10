@@ -7,7 +7,6 @@ namespace reanimated {
 
 void RuntimeDecorator::addNativeObjects(jsi::Runtime &rt, UpdaterFunction updater, RequestFrameFunction requestFrame) {
   rt.global().setProperty(rt, "_WORKLET", jsi::Value(true));
-  rt.global().setProperty(rt, "jsThis", jsi::Value::undefined());
 
   auto callback = [](
       jsi::Runtime &rt,
