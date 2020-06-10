@@ -36,7 +36,7 @@ const globals = new Set([
   'RegExp',
 ]);
 
-function buildWorkletString(t, fun, closureVariables) {
+function buildWorkletString(t, fun, closureVariables, name) {
   fun.traverse({
     enter(path) {
       t.removeComments(path.node);
@@ -46,13 +46,13 @@ function buildWorkletString(t, fun, closureVariables) {
   let workletFunction;
   if (closureVariables.length > 0) {
     workletFunction = t.functionExpression(
-      null,
+      t.identifier(name),
       fun.node.params,
       t.blockStatement([
         t.variableDeclaration('const', [
           t.variableDeclarator(
             t.objectPattern(
-              closureVariables.map(variable =>
+              closureVariables.map((variable) =>
                 t.objectProperty(
                   t.identifier(variable.name),
                   t.identifier(variable.name),
@@ -61,7 +61,7 @@ function buildWorkletString(t, fun, closureVariables) {
                 )
               )
             ),
-            t.memberExpression(t.thisExpression(), t.identifier('_closure'))
+            t.memberExpression(t.identifier('jsThis'), t.identifier('_closure'))
           ),
         ]),
         fun.get('body').node,
@@ -69,7 +69,7 @@ function buildWorkletString(t, fun, closureVariables) {
     );
   } else {
     workletFunction = t.functionExpression(
-      null,
+      t.identifier(name),
       fun.node.params,
       fun.get('body').node
     );
@@ -81,6 +81,12 @@ function buildWorkletString(t, fun, closureVariables) {
 function processWorkletFunction(t, fun) {
   if (!t.isFunctionParent(fun)) {
     return;
+  }
+
+  let functionName = '_f';
+
+  if (fun.node.id) {
+    functionName = fun.node.id.name;
   }
 
   const closure = new Map();
@@ -153,7 +159,7 @@ function processWorkletFunction(t, fun) {
   const clone = t.cloneNode(fun.node);
   const funExpression = t.functionExpression(null, clone.params, clone.body);
 
-  const funString = buildWorkletString(t, fun, variables);
+  const funString = buildWorkletString(t, fun, variables, functionName);
 
   const newFun = t.functionExpression(
     fun.id,
@@ -171,7 +177,7 @@ function processWorkletFunction(t, fun) {
             false
           ),
           t.objectExpression(
-            variables.map(variable =>
+            variables.map((variable) =>
               t.objectProperty(
                 t.identifier(variable.name),
                 variable,
@@ -238,7 +244,10 @@ function processWorkletFunction(t, fun) {
 function processIfWorkletNode(t, path) {
   const fun = path;
 
-  if (path.node.type === 'FuncionDeclaration' && path.node.id.name === 'siakaka') {
+  if (
+    path.node.type === 'FuncionDeclaration' &&
+    path.node.id.name === 'siakaka'
+  ) {
     console.log(fun.toString());
   }
 
@@ -254,19 +263,19 @@ function processIfWorkletNode(t, path) {
           directives &&
           directives.length > 0 &&
           directives.some(
-            directive =>
+            (directive) =>
               t.isDirectiveLiteral(directive.value) &&
               directive.value.value === 'worklet'
           )
         ) {
-          processWorkletFunction(t, fun)
+          processWorkletFunction(t, fun);
         }
       }
     },
   });
 }
 
-module.exports = function({ types: t }) {
+module.exports = function ({ types: t }) {
   return {
     visitor: {
       CallExpression: {
@@ -278,28 +287,28 @@ module.exports = function({ types: t }) {
           ) {
             const objectPath = path.get('arguments.0.properties.0');
             for (let i = 0; i < objectPath.container.length; i++) {
-              processWorkletFunction(t, objectPath.getSibling(i).get('value'))
+              processWorkletFunction(t, objectPath.getSibling(i).get('value'));
             }
           } else if (functionHooks.has(name)) {
-            processWorkletFunction(t, path.get('arguments.0'))
+            processWorkletFunction(t, path.get('arguments.0'));
           }
-        }
+        },
       },
       FunctionDeclaration: {
         exit(path) {
           processIfWorkletNode(t, path);
-        }
+        },
       },
       FunctionExpression: {
         exit(path) {
           processIfWorkletNode(t, path);
-        }
+        },
       },
       ArrowFunctionExpression: {
         exit(path) {
-          processIfWorkletNode(t,path);
-        }
-      }
+          processIfWorkletNode(t, path);
+        },
+      },
     },
   };
 };
