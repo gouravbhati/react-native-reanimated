@@ -62,9 +62,9 @@ void ShareableValue::adapt(jsi::Runtime &rt, const jsi::Value &value, ValueType 
       type = ObjectType;
       frozenObject = object.getHostObject<FrozenObject>(rt);
       adaptCache(rt, value);
-    } else if (object.hasProperty(rt, "__internalFrozen")) {
+    } else if (object.hasProperty(rt, "__reanimatedSharedRef")) {
       type = ObjectType;
-      frozenObject = object.getProperty(rt, "__internalFrozen").asObject(rt).getHostObject<FrozenObject>(rt);
+      frozenObject = object.getProperty(rt, "__reanimatedSharedRef").asObject(rt).getHostObject<FrozenObject>(rt);
       adaptCache(rt, value);
     } else if (objectType == RemoteObjectType) {
       type = RemoteObjectType;
@@ -106,20 +106,20 @@ jsi::Object ShareableValue::createHost(jsi::Runtime &rt, std::shared_ptr<jsi::Ho
 }
 
 jsi::Value createFrozenWrapper(ShareableValue *sv, jsi::Runtime &rt, std::shared_ptr<FrozenObject> frozenObject) {
-  jsi::Object __internalFrozen = sv->createHost(rt, frozenObject);
+  jsi::Object __reanimatedSharedRef = sv->createHost(rt, frozenObject);
   auto propertyNames = frozenObject->getPropertyNames(rt);
   jsi::Object obj(rt);
   for (auto &name : propertyNames) {
-    obj.setProperty(rt, name, __internalFrozen.getProperty(rt, name));
+    obj.setProperty(rt, name, __reanimatedSharedRef.getProperty(rt, name));
   }
   jsi::Object globalObject = rt.global().getPropertyAsObject(rt, "Object");
   jsi::Function freeze = globalObject.getPropertyAsFunction(rt, "freeze");
   jsi::Function defineProperty = globalObject.getPropertyAsFunction(rt, "defineProperty");
-  jsi::String internalPropName = jsi::String::createFromUtf8(rt, "__internalFrozen");
+  jsi::String internalPropName = jsi::String::createFromUtf8(rt, "__reanimatedSharedRef");
   
   jsi::Object paramForDefineProperty(rt);
   paramForDefineProperty.setProperty(rt, "enumerable", false);
-  paramForDefineProperty.setProperty(rt, "value", __internalFrozen);
+  paramForDefineProperty.setProperty(rt, "value", __reanimatedSharedRef);
   
   defineProperty.call(rt, obj, internalPropName, paramForDefineProperty);
   
