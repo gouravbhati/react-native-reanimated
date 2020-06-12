@@ -4,6 +4,20 @@
 
 namespace reanimated {
 
+const std::string HIDDEN_PROPERTY_NAME = "__reanimatedSharedRef";
+
+void addHiddenProperty(jsi::Runtime &rt,
+                       jsi::Object &hostObject,
+                       jsi::Object &obj) {
+  jsi::Object globalObject = rt.global().getPropertyAsObject(rt, "Object");
+  jsi::Function defineProperty = globalObject.getPropertyAsFunction(rt, "defineProperty");
+  jsi::String internalPropName = jsi::String::createFromUtf8(rt, HIDDEN_PROPERTY_NAME.c_str());
+  jsi::Object paramForDefineProperty(rt);
+  paramForDefineProperty.setProperty(rt, "enumerable", false);
+  paramForDefineProperty.setProperty(rt, "value", hostObject);
+  defineProperty.call(rt, obj, internalPropName, paramForDefineProperty);
+}
+
 void ShareableValue::adaptCache(jsi::Runtime &rt, const jsi::Value &value) {
   // when adapting from host object we can assign cached value immediately such that we avoid
   // running `toJSValue` in the future when given object is accessed
@@ -15,6 +29,28 @@ void ShareableValue::adaptCache(jsi::Runtime &rt, const jsi::Value &value) {
 }
 
 void ShareableValue::adapt(jsi::Runtime &rt, const jsi::Value &value, ValueType objectType) {
+  if (value.isObject()) {
+    jsi::Object object = value.asObject(rt);
+    
+    if (object.hasProperty(rt, HIDDEN_PROPERTY_NAME.c_str())) {
+      jsi::Object hiddenProperty = object.getProperty(rt, HIDDEN_PROPERTY_NAME.c_str()).asObject(rt);
+      
+      if (hiddenProperty.isHostObject<FrozenObject>(rt)) {
+        type = ObjectType;
+        frozenObject = hiddenProperty.getHostObject<FrozenObject>(rt);
+      } else if(hiddenProperty.isHostObject<RemoteObject>(rt)) {
+        type = RemoteObjectType;
+        remoteObject = hiddenProperty.getHostObject<RemoteObject>(rt);
+      } else if(hiddenProperty.isHostObject<MutableValue>(rt)) {
+        type = MutableValueType;
+        mutableValue = hiddenProperty.getHostObject<MutableValue>(rt);
+      }
+    
+      adaptCache(rt, value);
+      return;
+    }
+  }
+  
   if (objectType == MutableValueType) {
     type = MutableValueType;
     mutableValue = std::make_shared<MutableValue>(rt, value, module);
@@ -62,10 +98,6 @@ void ShareableValue::adapt(jsi::Runtime &rt, const jsi::Value &value, ValueType 
       type = ObjectType;
       frozenObject = object.getHostObject<FrozenObject>(rt);
       adaptCache(rt, value);
-    } else if (object.hasProperty(rt, "__reanimatedSharedRef")) {
-      type = ObjectType;
-      frozenObject = object.getProperty(rt, "__reanimatedSharedRef").asObject(rt).getHostObject<FrozenObject>(rt);
-      adaptCache(rt, value);
     } else if (objectType == RemoteObjectType) {
       type = RemoteObjectType;
       remoteObject = std::make_shared<RemoteObject>(rt, object, module);
@@ -76,6 +108,22 @@ void ShareableValue::adapt(jsi::Runtime &rt, const jsi::Value &value, ValueType 
     }
   } else {
     throw "Invalid value type";
+  }
+  
+  if (value.isObject()) {
+    jsi::Object object = value.asObject(rt);
+    
+    if (type == MutableValueType) {
+      jsi::Object hostObject = createHost(rt, mutableValue);
+      addHiddenProperty(rt, hostObject, object);
+    } else if (type == ObjectType) {
+      jsi::Object hostObject = createHost(rt, frozenObject);
+      addHiddenProperty(rt, hostObject, object);
+    } else if (type == RemoteObjectType) {
+      jsi::Object hostObject = createHost(rt, remoteObject);
+      addHiddenProperty(rt, hostObject, object);
+    }
+    
   }
 }
 
@@ -114,14 +162,7 @@ jsi::Value createFrozenWrapper(ShareableValue *sv, jsi::Runtime &rt, std::shared
   }
   jsi::Object globalObject = rt.global().getPropertyAsObject(rt, "Object");
   jsi::Function freeze = globalObject.getPropertyAsFunction(rt, "freeze");
-  jsi::Function defineProperty = globalObject.getPropertyAsFunction(rt, "defineProperty");
-  jsi::String internalPropName = jsi::String::createFromUtf8(rt, "__reanimatedSharedRef");
-  
-  jsi::Object paramForDefineProperty(rt);
-  paramForDefineProperty.setProperty(rt, "enumerable", false);
-  paramForDefineProperty.setProperty(rt, "value", __reanimatedSharedRef);
-  
-  defineProperty.call(rt, obj, internalPropName, paramForDefineProperty);
+  addHiddenProperty(rt, __reanimatedSharedRef, obj);
   
   return freeze.call(rt, obj);
 }
