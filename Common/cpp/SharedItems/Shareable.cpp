@@ -220,20 +220,7 @@ jsi::Value ShareableValue::toJSValue(jsi::Runtime &rt) {
                    const jsi::Value *args,
                    size_t count
                    ) mutable -> jsi::Value {
-          
-          jsi::Value oldJSThis = rt.global().getProperty(rt, "jsThis");
-          rt.global().setProperty(rt, "jsThis", *jsThis); //set jsThis
-          
-          jsi::Value res = jsi::Value::undefined();
-          
-          if (thisValue.isObject()) {
-            res = funPtr->callWithThis(rt, thisValue.asObject(rt), args, count);
-          } else {
-            res = funPtr->call(rt, args, count);
-          }
-          
-          rt.global().setProperty(rt, "jsThis", oldJSThis); //clean jsThis
-          return res;
+          return funPtr->callWithThis(rt, *jsThis, args, count);
         };
         return jsi::Function::createFromHostFunction(rt, jsi::PropNameID::forAscii(rt, "workletFunction"), 0, clb);
       } else {
@@ -268,15 +255,11 @@ jsi::Value ShareableValue::toJSValue(jsi::Runtime &rt) {
             
             jsi::Value returnedValue;
             
-            jsi::Value oldJSThis = rt.global().getProperty(rt, "jsThis");
-            rt.global().setProperty(rt, "jsThis", jsThis); //set jsThis
-            
-            returnedValue = funPtr->call(rt,
-                                             static_cast<const jsi::Value*>(args),
-                                             (size_t)params.size());
-            
-            rt.global().setProperty(rt, "jsThis", oldJSThis); //clean jsThis
-            
+            returnedValue = funPtr->callWithThis(rt,
+                                                 jsThis,
+                                                 static_cast<const jsi::Value*>(args),
+                                                 (size_t)params.size());
+
             delete [] args;
             // ToDo use returned value to return promise
           });
