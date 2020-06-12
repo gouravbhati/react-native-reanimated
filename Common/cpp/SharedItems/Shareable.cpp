@@ -32,7 +32,8 @@ void ShareableValue::adapt(jsi::Runtime &rt, const jsi::Value &value, ValueType 
   if (value.isObject()) {
     jsi::Object object = value.asObject(rt);
     
-    if (object.hasProperty(rt, HIDDEN_PROPERTY_NAME.c_str())) {
+    if (object.hasProperty(rt, HIDDEN_PROPERTY_NAME.c_str()) and
+        (!object.getProperty(rt, HIDDEN_PROPERTY_NAME.c_str()).isUndefined())) {
       jsi::Object hiddenProperty = object.getProperty(rt, HIDDEN_PROPERTY_NAME.c_str()).asObject(rt);
       
       if (hiddenProperty.isHostObject<FrozenObject>(rt)) {
