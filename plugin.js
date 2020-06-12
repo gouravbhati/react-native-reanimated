@@ -53,7 +53,7 @@ function buildWorkletString(t, fun, closureVariables) {
         t.variableDeclaration('const', [
           t.variableDeclarator(
             t.objectPattern(
-              closureVariables.map(variable =>
+              closureVariables.map((variable) =>
                 t.objectProperty(
                   t.identifier(variable.name),
                   t.identifier(variable.name),
@@ -172,7 +172,7 @@ function processWorkletFunction(t, fun) {
             false
           ),
           t.objectExpression(
-            variables.map(variable =>
+            variables.map((variable) =>
               t.objectProperty(
                 t.identifier(variable.name),
                 variable,
@@ -251,19 +251,19 @@ function processIfWorkletNode(t, path) {
           directives &&
           directives.length > 0 &&
           directives.some(
-            directive =>
+            (directive) =>
               t.isDirectiveLiteral(directive.value) &&
               directive.value.value === 'worklet'
           )
         ) {
-          processWorkletFunction(t, fun)
+          processWorkletFunction(t, fun);
         }
       }
     },
   });
 }
 
-module.exports = function({ types: t }) {
+module.exports = function ({ types: t }) {
   return {
     visitor: {
       CallExpression: {
@@ -275,28 +275,28 @@ module.exports = function({ types: t }) {
           ) {
             const objectPath = path.get('arguments.0.properties.0');
             for (let i = 0; i < objectPath.container.length; i++) {
-              processWorkletFunction(t, objectPath.getSibling(i).get('value'))
+              processWorkletFunction(t, objectPath.getSibling(i).get('value'));
             }
           } else if (functionHooks.has(name)) {
-            processWorkletFunction(t, path.get('arguments.0'))
+            processWorkletFunction(t, path.get('arguments.0'));
           }
-        }
+        },
       },
       FunctionDeclaration: {
         exit(path) {
           processIfWorkletNode(t, path);
-        }
+        },
       },
       FunctionExpression: {
         exit(path) {
           processIfWorkletNode(t, path);
-        }
+        },
       },
       ArrowFunctionExpression: {
         exit(path) {
-          processIfWorkletNode(t,path);
-        }
-      }
+          processIfWorkletNode(t, path);
+        },
+      },
     },
   };
 };
